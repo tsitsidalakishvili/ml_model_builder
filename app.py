@@ -36,8 +36,9 @@ def fetch_live_data():
     
     # Simulate loading data
     data = {
-        'Date': pd.date_range(start='2023-01-01', periods=100, freq='D'),
         'Oil volume (m3/day)': np.random.uniform(low=45, high=55, size=100),  # Assuming oil volume is around 49 +- 5
+        'Date': pd.date_range(start='2023-01-01', periods=100, freq='D'),
+
         'Water volume (m3/day)': np.random.uniform(low=15, high=25, size=100),  # Assuming water volume is around 21 +- 5
     }
     df = pd.DataFrame(data)
@@ -83,13 +84,15 @@ with st.sidebar:
 
 # If df is not None, meaning data is available for analysis
 if df is not None:
+    # Exclude the 'Date' column from the dropdown options
+    target_variable_options = df.columns[df.columns != 'Date']
     # User selects target variable from the sidebar
-    target_variable = st.sidebar.selectbox('Select the target variable to predict:', df.columns)
+    target_variable = st.sidebar.selectbox('Select the target variable to predict:', target_variable_options)
 
 
 # Sidebar - Set Parameters
 with st.sidebar:
-    st.header('2. Set Parameters')
+    st.header('2. Set Model Hyperparameters')
     parameter_split_size = st.slider('Data split ratio (% for Training Set)', 10, 90, 80, 5)
     parameter_n_estimators = st.slider('Number of estimators (n_estimators)', 0, 1000, 100, 100)
     parameter_max_features = st.select_slider('Max features (max_features)', options=['auto', 'sqrt', 'log2'])
