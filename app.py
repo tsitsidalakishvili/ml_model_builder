@@ -1,22 +1,13 @@
-
 import streamlit as st
 import pandas as pd
 import numpy as np
+import altair as alt
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error, r2_score
-import altair as alt
+import json
 import time
 import zipfile
-import datetime
-import json
-import streamlit as st
-import pandas as pd
-import numpy as np
-from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_squared_error, r2_score
-import json
 
 # Set page config
 st.set_page_config(page_title='ML Model Building', page_icon='🤖')
@@ -38,8 +29,16 @@ with st.expander('About this app'):
     - Streamlit for the web app
     """)
 
-# Initialize an empty DataFrame
-df = pd.DataFrame()
+# Sidebar for model parameters
+with st.sidebar:
+    st.header("Model Parameters")
+    # Model parameters
+    parameter_n_estimators = st.number_input('Number of estimators (n_estimators)', min_value=10, max_value=1000, value=100, step=10)
+    parameter_max_features = st.selectbox('Max features (max_features)', ['auto', 'sqrt', 'log2'])
+    parameter_min_samples_split = st.slider('Minimum number of samples required to split an internal node (min_samples_split)', 2, 10, 2, 1)
+    parameter_min_samples_leaf = st.slider('Minimum number of samples required to be at a leaf node (min_samples_leaf)', 1, 10, 2, 1)
+    parameter_bootstrap = st.selectbox('Bootstrap samples when building trees (bootstrap)', [True, False])
+    parameter_random_state = 42  # Fixed to ensure reproducibility
 
 # Function to simulate live data fetching
 def fetch_live_data():
@@ -60,6 +59,8 @@ def fetch_live_data():
     }
     return pd.DataFrame(data)
 
+df = pd.DataFrame()  # Initialize an empty DataFrame for later checks
+
 # Tabs for CSV Upload and Live Data
 tab1, tab2 = st.tabs(["CSV Upload", "Live Data"])
 
@@ -72,61 +73,144 @@ with tab1:
 
 # Tab2: Live Data
 with tab2:
-    if st.button('Generate Live Data'):
-        df = fetch_live_data()
-        st.write(df)
+    df = fetch_live_data() # Always fetch new live data when tab is active
+    st.write(df)
 
-# Model training button
+
+
+
+
+# ... your existing imports and setup ...
+# ... your existing code ...
+# ..# ... your existing imports and setup ...
+# ... your existing code ...
+# ... your existing imports and setup ...
+# ... your existing code ...
+
+# Check if data is loaded
 if not df.empty:
-    if st.button('Train Model'):
-        # Sidebar - Set Parameters
-        with st.sidebar:
-            st.header('Model Parameters')
-            parameter_split_size = st.slider('Data split ratio (% for Training Set)', 10, 90, 80, 5)
-            parameter_n_estimators = st.slider('Number of estimators (n_estimators)', 100, 1000, 100, 100)
-            parameter_max_features = st.select_slider('Max features (max_features)', options=['sqrt', 'log2'], value='sqrt')
-            parameter_min_samples_split = st.slider('Minimum number of samples required to split an internal node (min_samples_split)', 2, 10, 2, 1)
-            parameter_min_samples_leaf = st.slider('Minimum number of samples required to be at a leaf node (min_samples_leaf)', 1, 10, 2, 1)
-            parameter_random_state = st.slider('Seed number (random_state)', 0, 1000, 42, 1)
-            parameter_criterion = st.select_slider('Performance measure (criterion)', options=['squared_error', 'absolute_error', 'poisson'])
-            parameter_bootstrap = st.select_slider('Bootstrap samples when building trees (bootstrap)', options=[True, False])
-            parameter_oob_score = st.select_slider('Whether to use out-of-bag samples to estimate the R^2 on unseen data (oob_score)', options=[False, True])
+    # Convert 'Date' to datetime and extract features
+    df['Date'] = pd.to_datetime(df['Date'])
+    df['Year'] = df['Date'].dt.year
+    df['Month'] = df['Date'].dt.month
+    df['Day'] = df['Date'].dt.day
 
-        # Preprocessing and model training
-        with st.spinner("Preparing data ..."):
-            time.sleep(1)  # Simulate data processing time
-            
-            # Assume first column is the target variable for simplicity
-            target_variable = df.columns[0]
-            X = df.loc[:, df.columns != target_variable]
+    # Drop the 'Date' column after extracting features
+    df.drop(columns=['Date'], inplace=True)
+
+    # Allow the user to select the target variable from the remaining columns
+    target_variable = st.selectbox("Select the target variable to predict:", options=df.columns)
+
+    # Train model button
+    if st.button("Train Model"):
+        with st.spinner("Training model..."):
+            # Prepare the data for training
+            X = df.drop(columns=[target_variable])
             y = df[target_variable]
-            
+
+            # Convert all data to numeric type, handling non-numeric data and missing values
             X = X.apply(pd.to_numeric, errors='coerce').fillna(0)
             y = pd.to_numeric(y, errors='coerce').fillna(0)
-            
-            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=(100 - parameter_split_size) / 100, random_state=parameter_random_state)
-            
-            rf = RandomForestRegressor(
-                n_estimators=parameter_n_estimators,
-                max_features=parameter_max_features,
-                min_samples_split=parameter_min_samples_split,
-                min_samples_leaf=parameter_min_samples_leaf,
-                random_state=parameter_random_state,
-                criterion=parameter_criterion,
-                bootstrap=parameter_bootstrap,
-                oob_score=parameter_oob_score
-            )
-            rf.fit(X_train, y_train)
-            
-            # Performance metrics
-            train_mse = mean_squared_error(y_train, rf.predict(X_train))
-            test_mse = mean_squared_error(y_test, rf.predict(X_test))
-            train_r2 = r2_score(y_train, rf.predict(X_train))
-            test_r2 = r2_score(y_test, rf.predict(X_test))
-            
-            # Display model performance
-            st.success("Model training and evaluation complete.")
-            st.write(f"Training MSE: {train_mse}, Test MSE: {test_mse}")
-            st.write(f"Training R^2: {train_r2}, Test R^2: {test_r2}")
 
+            # Split the dataset into training and testing sets
+            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+            
+            # Initialize and fit the RandomForestRegressor model with the provided parameters
+            model = RandomForestRegressor(n_estimators=100, random_state=42)
+            model.fit(X_train, y_train)
 
+            # Prediction results section
+            y_train_pred = model.predict(X_train)
+            y_test_pred = model.predict(X_test)
+            df_train = pd.DataFrame({'Actual': y_train, 'Predicted': y_train_pred, 'Set': 'Train'})
+            df_test = pd.DataFrame({'Actual': y_test, 'Predicted': y_test_pred, 'Set': 'Test'})
+
+            # Combine train and test results
+            df_combined = pd.concat([df_train, df_test])
+
+            # Display additional training results
+            st.header('Dataset Information', divider='rainbow')
+
+            # Display dataset information
+            if 'X_train' in locals() or 'X_train' in globals():  # Check if data variables are defined
+                cols = st.columns(4)
+                cols[0].metric(label="No. of samples", value=X.shape[0])
+                cols[1].metric(label="No. of X variables", value=X.shape[1])
+                cols[2].metric(label="No. of Training samples", value=X_train.shape[0])
+                cols[3].metric(label="No. of Test samples", value=X_test.shape[0])
+            else:
+                st.warning('👈 Upload a CSV file or click "Load example data" to get started!')
+
+            # Display initial dataset
+            with st.expander('Initial Dataset', expanded=True):
+                st.dataframe(df, height=210, use_container_width=True)
+
+            # Display train-test splits
+            with st.expander('Train-Test Splits', expanded=False):
+                train_col = st.columns((3, 1))
+                with train_col[0]:
+                    st.markdown('**X_train**')
+                    st.dataframe(X_train, height=210, hide_index=True, use_container_width=True)
+                with train_col[1]:
+                    st.markdown('**y_train**')
+                    st.dataframe(y_train, height=210, hide_index=True, use_container_width=True)
+
+                test_col = st.columns((3, 1))
+                with test_col[0]:
+                    st.markdown('**X_test**')
+                    st.dataframe(X_test, height=210, hide_index=True, use_container_width=True)
+                with test_col[1]:
+                    st.markdown('**y_test**')
+                    st.dataframe(y_test, height=210, hide_index=True, use_container_width=True)
+
+            # Zip dataset files and provide download button
+            df.to_csv('dataset.csv', index=False)
+            X_train.to_csv('X_train.csv', index=False)
+            y_train.to_csv('y_train.csv', index=False)
+            X_test.to_csv('X_test.csv', index=False)
+            y_test.to_csv('y_test.csv', index=False)
+
+            list_files = ['dataset.csv', 'X_train.csv', 'y_train.csv', 'X_test.csv', 'y_test.csv']
+            with zipfile.ZipFile('dataset.zip', 'w') as zipF:
+                for file in list_files:
+                    zipF.write(file, compress_type=zipfile.ZIP_DEFLATED)
+
+            with open('dataset.zip', 'rb') as datazip:
+                btn = st.download_button(
+                        label='Download ZIP',
+                        data=datazip,
+                        file_name="dataset.zip",
+                        mime="application/octet-stream"
+                        )
+
+            # Visualizing the prediction results
+            st.header("Prediction Results and Feature Importance",  divider='rainbow')
+
+            # Use st.columns to place charts side by side
+            col1, col2 = st.columns(2)
+
+            # Prediction Results chart
+            with col1:
+                scatter = alt.Chart(df_combined).mark_circle().encode(
+                                x='Actual',
+                                y='Predicted',
+                                color='Set',
+                                tooltip=['Actual', 'Predicted']
+                            ).properties(
+                                width=300,
+                                height=400
+                            )
+                st.altair_chart(scatter, use_container_width=True)
+
+            # Calculate feature importance
+            importances = model.feature_importances_
+            feature_names = X.columns
+            df_importance = pd.DataFrame({'Feature': feature_names, 'Importance': importances})
+
+            # Feature Importance chart
+            with col2:
+                bars = alt.Chart(df_importance).mark_bar(size=40).encode(
+                            x='Importance',
+                            y=alt.Y('Feature', sort='-x')
+                        ).properties(height=400)
+                st.altair_chart(bars, use_container_width=True)
