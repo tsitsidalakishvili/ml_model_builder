@@ -118,16 +118,21 @@ with st.spinner("Preparing data ..."):
     # Splitting data
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=(100 - parameter_split_size) / 100, random_state=parameter_random_state)
 
+
+
+
     # Training model
     rf = RandomForestRegressor(
         n_estimators=parameter_n_estimators,
-        max_features=parameter_max_features,
+        max_features='sqrt',  # Changed from 'auto' to 'sqrt'
         min_samples_split=parameter_min_samples_split,
         min_samples_leaf=parameter_min_samples_leaf,
         random_state=parameter_random_state,
         criterion=parameter_criterion,
         bootstrap=parameter_bootstrap,
         oob_score=parameter_oob_score
+    
+
     )
     rf.fit(X_train, y_train)
     
