@@ -8,6 +8,10 @@ import altair as alt
 import time
 import zipfile
 import datetime
+import json
+
+
+
 
 # Set page config
 st.set_page_config(page_title='ML Model Building', page_icon='🤖')
@@ -207,17 +211,7 @@ X_test.to_csv('X_test.csv', index=False)
 y_test.to_csv('y_test.csv', index=False)
 
 list_files = ['dataset.csv', 'X_train.csv', 'y_train.csv', 'X_test.csv', 'y_test.csv']
-with zipfile.ZipFile('dataset.zip', 'w') as zipF:
-    for file in list_files:
-        zipF.write(file, compress_type=zipfile.ZIP_DEFLATED)
 
-with open('dataset.zip', 'rb') as datazip:
-    btn = st.download_button(
-            label='Download ZIP',
-            data=datazip,
-            file_name="dataset.zip",
-            mime="application/octet-stream"
-            )
 
 # Define parameter_max_features_metric based on parameter_max_features selection
 if parameter_max_features == 'auto':
@@ -327,3 +321,19 @@ if 'df_prediction' in locals():
     )
 
     st.altair_chart(combined_chart, use_container_width=True)
+
+
+
+# Assuming `df_prediction` is your DataFrame with predictions
+prediction_data = df_prediction.to_dict(orient='records')
+
+# Convert the prediction data to a JSON string
+json_data = json.dumps(prediction_data)
+
+# Generate a download button for the JSON data
+st.download_button(
+    label="Download Predictions as JSON",
+    data=json_data,
+    file_name="predictions.json",
+    mime="application/json"
+)
