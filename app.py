@@ -18,10 +18,8 @@ with st.expander('About this app'):
     **What can this app do?**
     - Build a machine learning model to predict various outcomes based on oil well operation parameters.
     - The user can either upload a CSV file or simulate live data.
-    
     **Use Case Example**
     - Predict future 'Oil volume (m3/day)' to plan production using data.
-    
     Libraries used:
     - Pandas, NumPy for data handling
     - Scikit-learn for machine learning
@@ -43,11 +41,12 @@ def fetch_live_data():
 
 # Data source selection
 data_source = st.sidebar.radio("Select the data source:", ("Upload CSV", "Simulate Live Data"))
-df = fetch_live_data() if data_source == "Simulate Live Data" else pd.DataFrame()
 if data_source == "Upload CSV":
     uploaded_file = st.sidebar.file_uploader("Upload a CSV file", type=["csv"])
     if uploaded_file is not None:
         df = pd.read_csv(uploaded_file)
+else:
+    df = fetch_live_data()
 
 # Display AgGrid for interactive data selection
 if not df.empty:
@@ -57,11 +56,15 @@ if not df.empty:
     gob.configure_selection('multiple', use_checkbox=True, rowMultiSelectWithClick=True, suppressRowDeselection=False)
     grid_options = gob.build()
     grid_response = AgGrid(df, gridOptions=grid_options, height=300, width='100%', update_mode='MODEL_CHANGED', fit_columns_on_grid_load=True)
-    selected_rows = grid_response['selected_rows']
-    selected_df = pd.DataFrame(selected_rows) if selected_rows else df
-    st.write("Selected Rows", selected_df)
+    if grid_response['selected_rows']:
+        selected_rows = grid_response['selected_rows']
+        df = pd.DataFrame(selected_rows)
+    # If no rows are selected, df remains unchanged
 else:
     st.warning("No data to display. Please select a data source.")
+
+# Continuing with model building and analysis...
+
 
     
 # If df is not None, meaning data is available for analysis
