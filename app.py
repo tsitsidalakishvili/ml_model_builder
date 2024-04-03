@@ -6,7 +6,7 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error, r2_score
 import altair as alt
 import time
-import zipfile
+from st_aggrid import AgGrid, GridOptionsBuilder
 
 # Set page config
 st.set_page_config(page_title='ML Model Building', page_icon='🤖')
@@ -31,57 +31,37 @@ with st.expander('About this app'):
 
 # Function to simulate live data fetching
 def fetch_live_data():
-    # Set the random seed for reproducibility
     np.random.seed(0)
-    
-    # Simulate loading data
     data = {
-        'Oil volume (m3/day)': np.random.uniform(low=45, high=55, size=100),  # Assuming oil volume is around 49 +- 5
+        'Oil volume (m3/day)': np.random.uniform(low=45, high=55, size=100),
         'Date': pd.date_range(start='2023-01-01', periods=100, freq='D'),
-
-        'Water volume (m3/day)': np.random.uniform(low=15, high=25, size=100),  # Assuming water volume is around 21 +- 5
+        # Add your additional simulated data columns here
     }
     df = pd.DataFrame(data)
-    df['Date'] = pd.to_datetime(df['Date'])  # Ensure the Date column is datetime type
-    
-    # Simulate additional columns
-    df['Volume of liquid (m3/day)'] = np.random.uniform(low=65, high=75, size=100)  # Assuming volume of liquid is around 70 +- 5
-    df['Gas volume (m3/day)'] = np.random.uniform(low=12800, high=13300, size=100)  # Assuming gas volume is around 13055 +- 250
-    df['Water cut (%)'] = np.random.uniform(low=25, high=35, size=100)  # Assuming water cut is around 29 +- 5
-    df['Working hours'] = np.random.uniform(low=22, high=26, size=100)  # Assuming working hours are around 24 +- 2
-    df['Dynamic level (m)'] = np.random.uniform(low=1750, high=1850, size=100)  # Assuming dynamic level is around 1800 +- 50
-    df['Reservoir pressure (atm)'] = np.random.uniform(low=210, high=220, size=100)  # Assuming reservoir pressure is around 214 +- 5
-    
+    df['Date'] = pd.to_datetime(df['Date'])
     return df
 
-# Sidebar - Data source selection
-with st.sidebar:
-    data_source = st.radio("Select the data source:", ("Upload CSV", "Simulate Live Data"))
+# Data source selection
+data_source = st.sidebar.radio("Select the data source:", ("Upload CSV", "Simulate Live Data"))
+df = fetch_live_data() if data_source == "Simulate Live Data" else pd.DataFrame()
+if data_source == "Upload CSV":
+    uploaded_file = st.sidebar.file_uploader("Upload a CSV file", type=["csv"])
+    if uploaded_file is not None:
+        df = pd.read_csv(uploaded_file)
 
-    if data_source == "Upload CSV":
-        uploaded_file = st.file_uploader("Upload a CSV file", type=["csv"])
-        if uploaded_file is not None:
-            df = pd.read_csv(uploaded_file)
-        else:
-            df = None
-
-
-# Fetch live data if selected
-if data_source == "Simulate Live Data":
-    df = fetch_live_data()
-
-# Sidebar - Select the target variable to predict
-with st.sidebar:
-    # Check if the button is pressed
-    if st.button('Simulate Live Data'):
-        df = fetch_live_data()
-        st.success('Live data simulated!')
-
-    st.header('1. Select Target Variable')
-    # The key argument is added to avoid DuplicateWidgetID error
-
-    # The key argument is added to avoid DuplicateWidgetID error
-
+# Display AgGrid for interactive data selection
+if not df.empty:
+    gob = GridOptionsBuilder.from_dataframe(df)
+    gob.configure_pagination()
+    gob.configure_side_bar()
+    gob.configure_selection('multiple', use_checkbox=True, rowMultiSelectWithClick=True, suppressRowDeselection=False)
+    grid_options = gob.build()
+    grid_response = AgGrid(df, gridOptions=grid_options, height=300, width='100%', update_mode='MODEL_CHANGED', fit_columns_on_grid_load=True)
+    selected_rows = grid_response['selected_rows']
+    selected_df = pd.DataFrame(selected_rows) if selected_rows else df
+    st.write("Selected Rows", selected_df)
+else:
+    st.warning("No data to display. Please select a data source.")
 # If df is not None, meaning data is available for analysis
 if df is not None:
     # Exclude the 'Date' column from the dropdown options
