@@ -35,13 +35,18 @@ def fetch_live_data():
     data = {
         'Oil volume (m3/day)': np.random.uniform(low=45, high=55, size=100),
         'Date': pd.date_range(start='2023-01-01', periods=100, freq='D'),
-        # Add your additional simulated data columns here
+        'Water volume (m3/day)': np.random.uniform(low=15, high=25, size=100),
+        'Gas volume (m3/day)': np.random.uniform(low=12800, high=13300, size=100),
+        'Water cut (%)': np.random.uniform(low=25, high=35, size=100),
+        'Working hours': np.random.uniform(low=22, high=26, size=100),
+        'Dynamic level (m)': np.random.uniform(low=1750, high=1850, size=100),
+        'Reservoir pressure (atm)': np.random.uniform(low=210, high=220, size=100),
     }
     df = pd.DataFrame(data)
     df['Date'] = pd.to_datetime(df['Date'])
     return df
 
-# Data source selection
+# Sidebar - Data source selection
 data_source = st.sidebar.radio("Select the data source:", ("Upload CSV", "Simulate Live Data"))
 df = fetch_live_data() if data_source == "Simulate Live Data" else pd.DataFrame()
 if data_source == "Upload CSV":
@@ -49,7 +54,7 @@ if data_source == "Upload CSV":
     if uploaded_file is not None:
         df = pd.read_csv(uploaded_file)
 
-# Display AgGrid for interactive data selection
+# Display AgGrid for interactive data selection immediately after the "About this app" section
 if not df.empty:
     gob = GridOptionsBuilder.from_dataframe(df)
     gob.configure_pagination()
@@ -62,6 +67,9 @@ if not df.empty:
     st.write("Selected Rows", selected_df)
 else:
     st.warning("No data to display. Please select a data source.")
+
+# Continue with the rest of your app's functionality...
+
 # If df is not None, meaning data is available for analysis
 if df is not None:
     # Exclude the 'Date' column from the dropdown options
