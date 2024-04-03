@@ -15,18 +15,18 @@ st.title('🤖 ML Model Building with Live Data')
 # Provide information about the app
 with st.expander('About this app'):
     st.write("""
-    **What can this app do?**
-    - Build a machine learning model to predict various outcomes based on oil well operation parameters.
-    - The user can either upload a CSV file or simulate live data.
-    
-    **Use Case Example**
-    - Predict future 'Oil volume (m3/day)' to plan production using data.
-    
-    Libraries used:
-    - Pandas, NumPy for data handling
-    - Scikit-learn for machine learning
-    - Altair for visualization
-    - Streamlit for the web app
+        **What can this app do?**
+        - Build a machine learning model to predict various outcomes based on oil well operation parameters.
+        - The user can either upload a CSV file or simulate live data.
+
+        **Use Case Example**
+        - Predict future 'Oil volume (m3/day)' to plan production using data.
+
+        Libraries used:
+        - Pandas, NumPy for data handling
+        - Scikit-learn for machine learning
+        - Altair for visualization
+        - Streamlit for the web app
     """)
 
 # Function to simulate live data fetching
@@ -49,12 +49,10 @@ def fetch_live_data():
 # Sidebar - Data source selection
 data_source = st.sidebar.radio("Select the data source:", ("Upload CSV", "Simulate Live Data"))
 df = fetch_live_data() if data_source == "Simulate Live Data" else pd.DataFrame()
-if data_source == "Upload CSV":
-    uploaded_file = st.sidebar.file_uploader("Upload a CSV file", type=["csv"])
-    if uploaded_file is not None:
-        df = pd.read_csv(uploaded_file)
+if data_source == "Upload CSV" and 'uploaded_file' in st.session_state:
+    df = pd.read_csv(uploaded_file)
 
-# Display AgGrid for interactive data selection immediately after the "About this app" section
+# This part is moved here to be immediately after the "About this app" section
 if not df.empty:
     gob = GridOptionsBuilder.from_dataframe(df)
     gob.configure_pagination()
@@ -64,11 +62,10 @@ if not df.empty:
     grid_response = AgGrid(df, gridOptions=grid_options, height=300, width='100%', update_mode='MODEL_CHANGED', fit_columns_on_grid_load=True)
     selected_rows = grid_response['selected_rows']
     selected_df = pd.DataFrame(selected_rows) if selected_rows else df
-    st.write("Selected Rows", selected_df)
+    df = selected_df  # Use the selected or original DataFrame for subsequent operations
 else:
     st.warning("No data to display. Please select a data source.")
 
-# Continue with the rest of your app's functionality...
 
 # If df is not None, meaning data is available for analysis
 if df is not None:
