@@ -15,16 +15,18 @@ st.title('🤖 ML Model Building with Live Data')
 # Provide information about the app
 with st.expander('About this app'):
     st.write("""
-    **What can this app do?**
-    - Build a machine learning model to predict various outcomes based on oil well operation parameters.
-    - The user can either upload a CSV file or simulate live data.
-    **Use Case Example**
-    - Predict future 'Oil volume (m3/day)' to plan production using data.
-    Libraries used:
-    - Pandas, NumPy for data handling
-    - Scikit-learn for machine learning
-    - Altair for visualization
-    - Streamlit for the web app
+        **What can this app do?**
+        - Build a machine learning model to predict various outcomes based on oil well operation parameters.
+        - The user can either upload a CSV file or simulate live data.
+        
+        **Use Case Example**
+        - Predict future 'Oil volume (m3/day)' to plan production using data.
+        
+        Libraries used:
+        - Pandas, NumPy for data handling
+        - Scikit-learn for machine learning
+        - Altair for visualization
+        - Streamlit for the web app
     """)
 
 # Function to simulate live data fetching
@@ -33,40 +35,41 @@ def fetch_live_data():
     data = {
         'Oil volume (m3/day)': np.random.uniform(low=45, high=55, size=100),
         'Date': pd.date_range(start='2023-01-01', periods=100, freq='D'),
-        # Add your additional simulated data columns here
     }
     df = pd.DataFrame(data)
     df['Date'] = pd.to_datetime(df['Date'])
     return df
 
-# Data source selection
+# Initialize an empty DataFrame in Streamlit's session state to handle data source selection and persistence
+if 'df' not in st.session_state:
+    st.session_state.df = pd.DataFrame()
+
 data_source = st.sidebar.radio("Select the data source:", ("Upload CSV", "Simulate Live Data"))
+
 if data_source == "Upload CSV":
     uploaded_file = st.sidebar.file_uploader("Upload a CSV file", type=["csv"])
     if uploaded_file is not None:
-        df = pd.read_csv(uploaded_file)
+        st.session_state.df = pd.read_csv(uploaded_file)
 else:
-    df = fetch_live_data()
+    st.session_state.df = fetch_live_data()
 
-# Display AgGrid for interactive data selection
-if not df.empty:
-    gob = GridOptionsBuilder.from_dataframe(df)
+# Interactive data selection with AgGrid
+if not st.session_state.df.empty:
+    gob = GridOptionsBuilder.from_dataframe(st.session_state.df)
     gob.configure_pagination()
     gob.configure_side_bar()
     gob.configure_selection('multiple', use_checkbox=True, rowMultiSelectWithClick=True, suppressRowDeselection=False)
     grid_options = gob.build()
-    grid_response = AgGrid(df, gridOptions=grid_options, height=300, width='100%', update_mode='MODEL_CHANGED', fit_columns_on_grid_load=True)
+    grid_response = AgGrid(st.session_state.df, gridOptions=grid_options, height=300, width='100%', update_mode='MODEL_CHANGED', fit_columns_on_grid_load=True)
     if grid_response['selected_rows']:
-        selected_rows = grid_response['selected_rows']
-        df = pd.DataFrame(selected_rows)
-    # If no rows are selected, df remains unchanged
+        st.session_state.df = pd.DataFrame(grid_response['selected_rows'])
 else:
     st.warning("No data to display. Please select a data source.")
 
-# Continuing with model building and analysis...
+# Ensure 'df' is always defined in session state before proceeding
+df = st.session_state.df if 'df' in st.session_state else pd.DataFrame()
 
 
-    
 # If df is not None, meaning data is available for analysis
 if df is not None:
     # Exclude the 'Date' column from the dropdown options
@@ -230,17 +233,26 @@ with prediction_col[2]:
                 )
     st.altair_chart(scatter, theme='streamlit', use_container_width=True)
 
+
+
+
 # Actual vs Predicted line trend chart
 if 'df' in locals() or 'df' in globals():
     # It's safe to use df here
-    st.header('Actual vs Predicted Line Trend', divider='rainbow')
-
+ 
+    st.header('Actual vs Predicted', divider='rainbow')
+    
+    # Use st.session_state.df directly
+    df_prediction = st.session_state.df
+    
     # Assuming 'Date' is the meaningful variable you want on the x-axis
     # and it is present in your dataframe
     if 'Date' in df_prediction:
         x_axis = 'Date'
     else:
         x_axis = df_prediction.columns[0]  # default to the first column
+    # Continue with your chart creation...
+
 
     # Create line chart for actual values
     actual_line = alt.Chart(df_prediction).mark_line(color='orange').encode(
