@@ -231,7 +231,8 @@ with prediction_col[2]:
     st.altair_chart(scatter, theme='streamlit', use_container_width=True)
 
 # Actual vs Predicted line trend chart
-if 'df_prediction' in locals():
+if 'df' in locals() or 'df' in globals():
+    # It's safe to use df here
     st.header('Actual vs Predicted Line Trend', divider='rainbow')
 
     # Assuming 'Date' is the meaningful variable you want on the x-axis
