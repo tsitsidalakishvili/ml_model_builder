@@ -61,7 +61,12 @@ if not st.session_state.df.empty:
     gob.configure_selection('multiple', use_checkbox=True, rowMultiSelectWithClick=True, suppressRowDeselection=False)
     grid_options = gob.build()
     grid_response = AgGrid(st.session_state.df, gridOptions=grid_options, height=300, width='100%', update_mode='MODEL_CHANGED', fit_columns_on_grid_load=True)
-    if grid_response['selected_rows']:
+ 
+    # Updated code:
+    if not grid_response['selected_rows'].empty:
+        # Place the rest of your code here that should execute when there are selected rows
+
+        
         st.session_state.df = pd.DataFrame(grid_response['selected_rows'])
 else:
     st.warning("No data to display. Please select a data source.")
