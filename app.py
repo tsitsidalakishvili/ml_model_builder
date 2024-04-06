@@ -6,7 +6,14 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error, r2_score
 import altair as alt
 import time
-from st_aggrid import AgGrid, GridOptionsBuilder
+import streamlit as st
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objs as go
+from plotly.subplots import make_subplots
+from collections import Counter
+import io
+from sklearn.impute import SimpleImputer
 
 # Set page config
 st.set_page_config(page_title='ML Model Building', page_icon='🤖')
@@ -31,20 +38,72 @@ with st.expander('About this app'):
 
 # Function to simulate live data fetching
 def fetch_live_data():
-    np.random.seed(0)
-    data = {
-        'Oil volume (m3/day)': np.random.uniform(low=45, high=55, size=100),
-        'Date': pd.date_range(start='2023-01-01', periods=100, freq='D'),
-    }
-    df = pd.DataFrame(data)
-    df['Date'] = pd.to_datetime(df['Date'])
+    # Assuming 'sample.csv' is in the same directory as your script
+    # Replace 'sample.csv' with the correct path if your file is located elsewhere
+    file_path = 'oil_well_sample.csv'
+    df = pd.read_csv(file_path)
+    df['Date'] = pd.to_datetime(df['Date'])  # Ensure the 'Date' column is in datetime format
     return df
+
+
+
+def analyze_data(df):
+    # Analysis and visualization code goes here
+    
+    with st.expander("Initial Records in Dataset"):
+        st.dataframe(df.head())
+
+    with st.expander("Exploring the Dataset"):
+        # Shape of the dataframe
+        st.write("Shape of the dataframe:", df.shape)
+
+        # Getting more info on the dataset
+        st.text("Info on the dataset:")
+        buffer = io.StringIO()
+        df.info(buf=buffer)
+        s = buffer.getvalue()
+        st.text(s)
+
+        # Describe dataset
+        st.write("Statistical summary of the dataset:")
+        st.dataframe(df.describe())
+
+        # Display missing values count
+        st.write("Missing values in each column:")
+        missing_values = df.isnull().sum()
+        missing_values = missing_values[missing_values > 0]
+        st.table(missing_values)
+
+    with st.expander("Dealing with Missing Values"):
+        option = st.selectbox("Choose a method:",
+                            ['Select an option', 'Drop rows with missing values', 'Impute with Mean', 'Impute with Median'])
+
+        if option == 'Drop rows with missing values':
+            df.dropna(inplace=True)
+            st.success("Rows with missing values dropped successfully.")
+            st.dataframe(df)
+
+        elif option == 'Impute with Mean':
+            imputer = SimpleImputer(strategy='mean')
+            df_imputed = pd.DataFrame(imputer.fit_transform(df.select_dtypes(include=['float64', 'int64'])), columns=df.select_dtypes(include=['float64', 'int64']).columns)
+            df[df.select_dtypes(include=['float64', 'int64']).columns] = df_imputed
+            st.success("Missing values imputed with column mean successfully.")
+            st.dataframe(df)
+
+        elif option == 'Impute with Median':
+            imputer = SimpleImputer(strategy='median')
+            df_imputed = pd.DataFrame(imputer.fit_transform(df.select_dtypes(include=['float64', 'int64'])), columns=df.select_dtypes(include=['float64', 'int64']).columns)
+            df[df.select_dtypes(include=['float64', 'int64']).columns] = df_imputed
+            st.success("Missing values imputed with column median successfully.")
+            st.dataframe(df)
+
+
 
 # Initialize an empty DataFrame in Streamlit's session state to handle data source selection and persistence
 if 'df' not in st.session_state:
     st.session_state.df = pd.DataFrame()
 
-data_source = st.sidebar.radio("Select the data source:", ("Upload CSV", "Simulate Live Data"))
+data_source = st.sidebar.radio("Select the data source:", ("Upload CSV", "Load Sample Data"))
 
 if data_source == "Upload CSV":
     uploaded_file = st.sidebar.file_uploader("Upload a CSV file", type=["csv"])
@@ -53,34 +112,22 @@ if data_source == "Upload CSV":
 else:
     st.session_state.df = fetch_live_data()
 
-# Interactive data selection with AgGrid
 if not st.session_state.df.empty:
-    gob = GridOptionsBuilder.from_dataframe(st.session_state.df)
-    gob.configure_pagination()
-    gob.configure_side_bar()
-    gob.configure_selection('multiple', use_checkbox=True, rowMultiSelectWithClick=True, suppressRowDeselection=False)
-    grid_options = gob.build()
-    grid_response = AgGrid(st.session_state.df, gridOptions=grid_options, height=300, width='100%', update_mode='MODEL_CHANGED', fit_columns_on_grid_load=True)
- 
-    # Updated code:
-    if not grid_response['selected_rows'].empty:
-        # Place the rest of your code here that should execute when there are selected rows
-
-        
-        st.session_state.df = pd.DataFrame(grid_response['selected_rows'])
+    st.dataframe(st.session_state.df, height=300)  # Removed the width parameter
 else:
     st.warning("No data to display. Please select a data source.")
+
 
 # Ensure 'df' is always defined in session state before proceeding
 df = st.session_state.df if 'df' in st.session_state else pd.DataFrame()
 
-
 # If df is not None, meaning data is available for analysis
-if df is not None:
+if not df.empty:
     # Exclude the 'Date' column from the dropdown options
-    target_variable_options = df.columns[df.columns != 'Date']
+    target_variable_options = df.columns[df.columns != 'Date'].tolist()
     # User selects target variable from the sidebar
     target_variable = st.sidebar.selectbox('Select the target variable to predict:', target_variable_options)
+
 
 
 # Sidebar - Set Parameters
@@ -117,8 +164,53 @@ with st.spinner("Preparing data ..."):
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=(100 - parameter_split_size) / 100, random_state=parameter_random_state)
 
     # Display initial dataset
-    with st.expander('Initial dataset', expanded=True):
-        st.dataframe(df, height=210, use_container_width=True)
+    with st.expander("Initial Records in Dataset"):
+        st.dataframe(df.head())
+
+    with st.expander("Exploring the Dataset"):
+        # Shape of the dataframe
+        st.write("Shape of the dataframe:", df.shape)
+
+        # Getting more info on the dataset
+        st.text("Info on the dataset:")
+        buffer = io.StringIO()
+        df.info(buf=buffer)
+        s = buffer.getvalue()
+        st.text(s)
+
+        # Describe dataset
+        st.write("Statistical summary of the dataset:")
+        st.dataframe(df.describe())
+
+        # Display missing values count
+        st.write("Missing values in each column:")
+        missing_values = df.isnull().sum()
+        missing_values = missing_values[missing_values > 0]
+        st.table(missing_values)
+
+    with st.expander("Dealing with Missing Values"):
+        option = st.selectbox("Choose a method:",
+                            ['Select an option', 'Drop rows with missing values', 'Impute with Mean', 'Impute with Median'])
+
+        if option == 'Drop rows with missing values':
+            df.dropna(inplace=True)
+            st.success("Rows with missing values dropped successfully.")
+            st.dataframe(df)
+
+        elif option == 'Impute with Mean':
+            imputer = SimpleImputer(strategy='mean')
+            df_imputed = pd.DataFrame(imputer.fit_transform(df.select_dtypes(include=['float64', 'int64'])), columns=df.select_dtypes(include=['float64', 'int64']).columns)
+            df[df.select_dtypes(include=['float64', 'int64']).columns] = df_imputed
+            st.success("Missing values imputed with column mean successfully.")
+            st.dataframe(df)
+
+        elif option == 'Impute with Median':
+            imputer = SimpleImputer(strategy='median')
+            df_imputed = pd.DataFrame(imputer.fit_transform(df.select_dtypes(include=['float64', 'int64'])), columns=df.select_dtypes(include=['float64', 'int64']).columns)
+            df[df.select_dtypes(include=['float64', 'int64']).columns] = df_imputed
+            st.success("Missing values imputed with column median successfully.")
+            st.dataframe(df)
+
         
     # Display train split
     with st.expander('Train split', expanded=False):
@@ -237,4 +329,3 @@ with prediction_col[2]:
                     color='class'
                 )
     st.altair_chart(scatter, theme='streamlit', use_container_width=True)
-
